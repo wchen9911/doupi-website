@@ -51,21 +51,21 @@ const TRANSLATIONS = {
 };
 
 const VIDEOS = [
-  { id: 'Yh2HQk-yFJA', title: 'Goldthread: Carbs on Carbs' },
-  { id: 'G4Xfu2sI3If', title: 'Shanhaiguan Road Tour' },
-  { id: 'GZ0qXeyq_0s', title: 'Food Ranger in Wuhan' },
-  { id: 'Gp7xQVIkujv', title: 'POV Making Doupi' },
-  { id: '6IZ8NJLfuhQ', title: 'Authentic Recipe Tutorial' },
-  { id: 'cxnEqk1tnJ4', title: 'Homemade Version' },
-  { id: '1MWcrTM1eZ2', title: 'Vegan Doupi' },
-  { id: 'Exsy30xCii9', title: 'Quick Assembly' },
-  { id: 'EnDlG1L9MHo', title: 'Market Morning' },
-  { id: 'YyvSlyB-R3E', title: 'Master Chef Technique' },
-  { id: '4UuYvU6kXnE', title: 'Wuhan Breakfast Tour' },
-  { id: 'vX9F0_lT43E', title: 'Massive Pan Flip' },
-  { id: 'Z5fM0uMvXIk', title: 'Crispy Bottom ASMR' },
-  { id: 'P7fL509y_yQ', title: 'Lao Tong Cheng Legacy' },
-  { id: 'U_Wp7W3vY-0', title: 'Modern Street Vendor' }
+  { id: 'Yh2HQk-yFJA', title: 'Goldthread: Carbs on Carbs', zhTitle: '武汉三鲜豆皮：碳水快乐之源 (Goldthread)' },
+  { id: 'G4Xfu2sI3If', title: 'Shanhaiguan Road Tour', zhTitle: '2026武汉山海关路探店：三鲜豆皮 & 鸡冠饺' },
+  { id: 'GZ0qXeyq_0s', title: 'Food Ranger in Wuhan', zhTitle: '美食大王：武汉街头三鲜豆皮盛况 (Food Ranger)' },
+  { id: 'Gp7xQVIkujv', title: 'POV Making Doupi', zhTitle: '第一视角：看老师傅如何摊豆皮 (POV Street Food)' },
+  { id: '6IZ8NJLfuhQ', title: 'Authentic Recipe Tutorial', zhTitle: '正宗武汉三鲜豆皮做法详解 (Rocky\'s Chinese Food)' },
+  { id: 'cxnEqk1tnJ4', title: 'Homemade Version', zhTitle: '家庭版武汉豆皮：平底锅也能做出街头味' },
+  { id: '1MWcrTM1eZ2', title: 'Vegan Doupi', zhTitle: '素食版武汉豆皮：鲜香软糯不打折 (Vegan Doupi)' },
+  { id: 'Exsy30xCii9', title: 'Quick Assembly', zhTitle: '1分钟看懂武汉豆皮制作全过程 (#Shorts)' },
+  { id: 'EnDlG1L9MHo', title: 'Market Morning', zhTitle: '武汉晨光：充满活力的豆皮摊位 (New China TV)' },
+  { id: 'YyvSlyB-R3E', title: 'Master Chef Technique', zhTitle: '非遗传承：大师级三鲜豆皮技巧展示' },
+  { id: '4UuYvU6kXnE', title: 'Wuhan Breakfast Tour', zhTitle: '武汉过早巡礼：豆皮是永远的主角' },
+  { id: 'vX9F0_lT43E', title: 'Massive Pan Flip', zhTitle: '震撼！看武汉师傅单手翻动巨型豆皮锅' },
+  { id: 'Z5fM0uMvXIk', title: 'Crispy Bottom ASMR', zhTitle: '酥脆预警！三鲜豆皮制作ASMR' },
+  { id: 'P7fL509y_yQ', title: 'Lao Tong Cheng Legacy', zhTitle: '老通城传奇：武汉三鲜豆皮的历史与传承' },
+  { id: 'U_Wp7W3vY-0', title: 'Modern Street Vendor', zhTitle: '现代街头：守护传统味道的年轻摊主' }
 ];
 
 export default function App() {
@@ -182,14 +182,16 @@ export default function App() {
                   <iframe
                     className="w-full h-full"
                     src={`https://www.youtube.com/embed/${vid.id}`}
-                    title={vid.title}
+                    title={lang === 'en' ? vid.title : vid.zhTitle}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   ></iframe>
                 </div>
                 <div className="p-4 flex justify-between items-center">
-                  <span className="font-semibold text-gray-700 truncate">{vid.title}</span>
+                  <span className="font-semibold text-gray-700 truncate">
+                    {lang === 'en' ? vid.title : vid.zhTitle}
+                  </span>
                   <a 
                     href={`https://youtube.com/watch?v=${vid.id}`} 
                     target="_blank" 
