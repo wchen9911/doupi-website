@@ -51,14 +51,26 @@ const TRANSLATIONS = {
 };
 
 const VIDEOS = [
-  { id: 'WThFj5JtkJ8', title: 'Magic Ingredients: Best Homemade Doupi', zhTitle: '小高姐：家庭版武汉三鲜豆皮 (Top Rated)' },
-  { id: 'jFVJbvsetcU', title: 'Food Ranger: God Level Street Food Tour', zhTitle: '美食大王：武汉街头美食巡礼 (The Food Ranger)' },
-  { id: 'Yh2HQk-yFJA', title: 'Goldthread: The Art of Doupi', zhTitle: 'Goldthread：走进武汉豆皮的艺术' },
-  { id: 'vX9F0_lT43E', title: 'Iconic: The Massive Pan Flip Skill', zhTitle: '震撼视觉：武汉师傅单手翻动巨型锅' },
-  { id: '_yKzbvpl8rd4', title: 'Fujiade Old Chef: Professional Ratio', zhTitle: '付家德老厨：正宗三鲜豆皮配比与技巧' },
-  { id: 'QZlgOty_Sq1', title: 'Wuhan Morning Market Culture', zhTitle: '治愈系：武汉清晨集市中的豆皮香' },
-  { id: 'KDikFL5khew', title: 'Travel Guide: Must-Eat Spot Hubu Alley', zhTitle: '旅游指南：户部巷寻味最正宗豆皮' },
-  { id: 'vX9F0_lT43E', title: 'Viral Street Food Master', zhTitle: '街头绝技：这就是武汉豆皮的魅力' }
+  { 
+    id: 'N66iAlKUA5s', 
+    title: 'Authentic Wuhan Three-Fresh Doupi', 
+    zhTitle: '不是你想像的豆皮，教你做一份地道的武汉三鲜豆皮 (大碗拿铁)' 
+  },
+  { 
+    id: 'h_-EB17kaZY', 
+    title: 'Wuhan Doupi Overseas Experience', 
+    zhTitle: '在海外能吃到武汉豆皮的含金量！ (加拿大俩哥特)' 
+  },
+  { 
+    id: 'TOlCIjFQfDg', 
+    title: 'Homemade Wuhan Doupi (Tasty & Crispy)', 
+    zhTitle: 'Homemade Wuhan Doupi (家庭版武汉豆皮) - 菲菲的家' 
+  },
+  { 
+    id: 'VxjoILRaK-c', 
+    title: 'Aromatic Street-Style Doupi', 
+    zhTitle: '【食语集】武汉过早香满街的三鲜豆皮，焦香美味！' 
+  }
 ];
 
 export default function App() {
@@ -168,7 +180,7 @@ export default function App() {
             <p className="text-xl text-orange-800 max-w-2xl mx-auto">{t.video_caption}</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {VIDEOS.map((vid, idx) => (
               <div key={`${vid.id}-${idx}`} className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-orange-100">
                 <div className="aspect-video relative">
