@@ -51,21 +51,14 @@ const TRANSLATIONS = {
 };
 
 const VIDEOS = [
+  { id: 'WThFj5JtkJ8', title: 'Authentic Wuhan Doupi Tutorial', zhTitle: '正宗武汉三鲜豆皮做法详解 (Rocky\'s Chinese Food)' },
+  { id: 'vX9F0_lT43E', title: 'The Art of the Massive Pan Flip', zhTitle: '震撼！看武汉师傅单手翻动巨型豆皮锅' },
+  { id: 'GZ0qXeyq_0s', title: 'Food Ranger: God Level Street Food', zhTitle: '美食大王：武汉街头三鲜豆皮盛况 (Food Ranger)' },
   { id: 'Yh2HQk-yFJA', title: 'Goldthread: Carbs on Carbs', zhTitle: '武汉三鲜豆皮：碳水快乐之源 (Goldthread)' },
-  { id: 'G4Xfu2sI3If', title: 'Shanhaiguan Road Tour', zhTitle: '2026武汉山海关路探店：三鲜豆皮 & 鸡冠饺' },
-  { id: 'GZ0qXeyq_0s', title: 'Food Ranger in Wuhan', zhTitle: '美食大王：武汉街头三鲜豆皮盛况 (Food Ranger)' },
-  { id: 'Gp7xQVIkujv', title: 'POV Making Doupi', zhTitle: '第一视角：看老师傅如何摊豆皮 (POV Street Food)' },
-  { id: '6IZ8NJLfuhQ', title: 'Authentic Recipe Tutorial', zhTitle: '正宗武汉三鲜豆皮做法详解 (Rocky\'s Chinese Food)' },
-  { id: 'cxnEqk1tnJ4', title: 'Homemade Version', zhTitle: '家庭版武汉豆皮：平底锅也能做出街头味' },
-  { id: '1MWcrTM1eZ2', title: 'Vegan Doupi', zhTitle: '素食版武汉豆皮：鲜香软糯不打折 (Vegan Doupi)' },
-  { id: 'Exsy30xCii9', title: 'Quick Assembly', zhTitle: '1分钟看懂武汉豆皮制作全过程 (#Shorts)' },
-  { id: 'EnDlG1L9MHo', title: 'Market Morning', zhTitle: '武汉晨光：充满活力的豆皮摊位 (New China TV)' },
-  { id: 'YyvSlyB-R3E', title: 'Master Chef Technique', zhTitle: '非遗传承：大师级三鲜豆皮技巧展示' },
-  { id: '4UuYvU6kXnE', title: 'Wuhan Breakfast Tour', zhTitle: '武汉过早巡礼：豆皮是永远的主角' },
-  { id: 'vX9F0_lT43E', title: 'Massive Pan Flip', zhTitle: '震撼！看武汉师傅单手翻动巨型豆皮锅' },
-  { id: 'Z5fM0uMvXIk', title: 'Crispy Bottom ASMR', zhTitle: '酥脆预警！三鲜豆皮制作ASMR' },
-  { id: 'P7fL509y_yQ', title: 'Lao Tong Cheng Legacy', zhTitle: '老通城传奇：武汉三鲜豆皮的历史与传承' },
-  { id: 'U_Wp7W3vY-0', title: 'Modern Street Vendor', zhTitle: '现代街头：守护传统味道的年轻摊主' }
+  { id: '_yKzbvpl8rd4', title: 'Historic Market Tour 2026', zhTitle: '2026武汉集市巡礼：地道三鲜豆皮' },
+  { id: 'DqYSuVp8_mj', title: 'Wuhan Street Scene 2026 (4K)', zhTitle: '2026武汉街头美食实拍 (4K高清)' },
+  { id: 'QZlgOty_Sq1', title: 'A Satisfying Market Tour', zhTitle: '治愈系：武汉晨光中的豆皮摊位' },
+  { id: 'KDikFL5khew', title: 'Wuhan Travel Guide: Hubu Alley', zhTitle: '武汉旅游指南：户部巷寻味豆皮' }
 ];
 
 export default function App() {
@@ -85,7 +78,7 @@ export default function App() {
           className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full transition-all shadow-md active:scale-95"
         >
           <Languages size={18} />
-          <span className="font-semibold">{lang === 'en' ? '中文' : 'English'}</span>
+          <span className="font-semibold">{lang === 'zh' ? 'English' : '中文'}</span>
         </button>
       </header>
 
@@ -182,7 +175,7 @@ export default function App() {
                   <iframe
                     className="w-full h-full"
                     src={`https://www.youtube.com/embed/${vid.id}`}
-                    title={lang === 'en' ? vid.title : vid.zhTitle}
+                    title={lang === 'zh' ? vid.zhTitle : vid.title}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
@@ -190,7 +183,7 @@ export default function App() {
                 </div>
                 <div className="p-4 flex justify-between items-center">
                   <span className="font-semibold text-gray-700 truncate">
-                    {lang === 'en' ? vid.title : vid.zhTitle}
+                    {lang === 'zh' ? vid.zhTitle : vid.title}
                   </span>
                   <a 
                     href={`https://youtube.com/watch?v=${vid.id}`} 
