@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Shield, Swords, Star, Zap, Brain, Trophy, RotateCcw, ChevronRight, Lock } from 'lucide-react';
+import { Shield, Swords, Star, Zap, Brain, Trophy, RotateCcw, ChevronRight, Lock, Coins, Timer, Heart } from 'lucide-react';
 import './App.css';
 
 // --- Types ---
@@ -33,8 +33,8 @@ const GAMES: GameInfo[] = [
 
 const STORAGE_KEY = 'owen_math_unlock_level';
 const MULTIPLICATION_STATE_KEY = 'owen_math_multiplication_state_v2';
-const VERSION = "v1.3.0";
-const TIME_LIMIT = 20;
+const VERSION = "v2.0.0";
+const TIME_LIMIT = 10;
 
 // --- Math Utilities ---
 const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -43,20 +43,18 @@ const generateAllMultiplicationQuestions = (): MathQuestion[] => {
   const questions: MathQuestion[] = [];
   for (let i = 1; i <= 12; i++) {
     for (let j = 1; j <= 12; j++) {
-      // Multiplication
       questions.push({
         id: `mul-${i}-${j}`,
         type: 'Multiplication',
-        question: `${i} × ${j} = ?`,
+        question: `${i} × ${j}`,
         answer: (i * j).toString(),
         correctCount: 0,
         incorrectCount: 0,
       });
-      // Division
       questions.push({
         id: `div-${i * j}-${i}`,
         type: 'Division',
-        question: `${i * j} ÷ ${i} = ?`,
+        question: `${i * j} ÷ ${i}`,
         answer: j.toString(),
         correctCount: 0,
         incorrectCount: 0,
@@ -77,42 +75,10 @@ const simplifyFraction = (n: number, d: number): [number, number] => {
   return [n / common, d / common];
 };
 
-const generateOptions = (answer: string, type: string): string[] => {
-  const options = new Set<string>();
-  options.add(answer);
-  
-  while (options.size < 6) {
-    let wrong: string;
-    const isFraction = answer.includes('/');
-    
-    if (isFraction) {
-      const [n, d] = answer.split('/').map(Number);
-      const offset = getRandomInt(-3, 3);
-      if (offset === 0) continue;
-      const newN = Math.max(1, n + offset);
-      wrong = `${newN}/${d}`;
-    } else {
-      const correctNum = parseFloat(answer);
-      const offset = (type === 'Decimal') ? (getRandomInt(-20, 20) / 10) : getRandomInt(-10, 10);
-      if (offset === 0) continue;
-      wrong = (type === 'Decimal') ? Math.max(0.1, correctNum + offset).toFixed(1) : Math.max(0, Math.round(correctNum + offset)).toString();
-    }
-    
-    if (wrong !== answer) {
-      options.add(wrong);
-    }
-  }
-  
-  return Array.from(options).sort(() => Math.random() - 0.5);
-};
-
 const generateProblem = (type: GameType) => {
   let prob: any;
   switch (type) {
-    case 'Multiplication': {
-      // This is now handled inside MultiplicationGame
-      return null;
-    }
+    case 'Multiplication': return null;
     case 'Fraction': {
       const den = getRandomInt(2, 8);
       let n1 = getRandomInt(1, den);
@@ -121,12 +87,7 @@ const generateProblem = (type: GameType) => {
       if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
       const resN = op === '+' ? n1 + n2 : n1 - n2;
       const [sn, sd] = simplifyFraction(resN, den);
-      prob = { 
-        question: `${n1}/${den} ${op} ${n2}/${den} = ?`, 
-        answer: `${sn}/${sd}`, 
-        rawAnswer: `${resN}/${den}`,
-        placeholder: "n/d (simplified)" 
-      };
+      prob = { question: `${n1}/${den} ${op} ${n2}/${den}`, answer: `${sn}/${sd}`, rawAnswer: `${resN}/${den}` };
       break;
     }
     case 'Decimal': {
@@ -134,7 +95,7 @@ const generateProblem = (type: GameType) => {
       const b = (getRandomInt(10, 100) / 10).toFixed(1);
       const op = Math.random() > 0.5 ? '+' : '-';
       const ans = op === '+' ? parseFloat(a) + parseFloat(b) : parseFloat(a) - parseFloat(b);
-      prob = { question: `${a} ${op} ${b} = ?`, answer: ans.toFixed(1), placeholder: "0.0" };
+      prob = { question: `${a} ${op} ${b}`, answer: ans.toFixed(1) };
       break;
     }
     case 'PEMDAS': {
@@ -143,9 +104,9 @@ const generateProblem = (type: GameType) => {
       const c = getRandomInt(2, 5);
       const useParen = Math.random() > 0.5;
       if (useParen) {
-        prob = { question: `(${a} + ${b}) × ${c} = ?`, answer: ((a + b) * c).toString(), placeholder: "Result" };
+        prob = { question: `(${a} + ${b}) × ${c}`, answer: ((a + b) * c).toString() };
       } else {
-        prob = { question: `${a} + ${b} × ${c} = ?`, answer: (a + b * c).toString(), placeholder: "Result" };
+        prob = { question: `${a} + ${b} × ${c}`, answer: (a + b * c).toString() };
       }
       break;
     }
@@ -154,13 +115,13 @@ const generateProblem = (type: GameType) => {
       const a = getRandomInt(2, 5);
       const b = getRandomInt(1, 15);
       const c = a * x + b;
-      prob = { question: `${a}x + ${b} = ${c}, x = ?`, answer: x.toString(), placeholder: "x = ?" };
+      prob = { question: `${a}x + ${b} = ${c}`, answer: x.toString() };
       break;
     }
     default:
-      prob = { question: "1 + 1 = ?", answer: "2", placeholder: "" };
+      prob = { question: "1 + 1", answer: "2" };
   }
-  return { ...prob, options: generateOptions(prob.answer, type) };
+  return prob;
 };
 
 // --- Components ---
@@ -175,80 +136,127 @@ interface BattleUIProps {
   timeLeft: number;
   isGameOver: boolean;
   onExit: () => void;
-  onAnswer: (option: string) => void;
+  onAnswer: (answer: string) => void;
   totalTimeLimit?: number;
 }
 
 function BattleUI({ gameId, problem, feedback, score, progress, totalProgress = 20, timeLeft, isGameOver, onExit, onAnswer, totalTimeLimit = TIME_LIMIT }: BattleUIProps) {
+  const [inputValue, setInputValue] = useState('');
+  const [isJumping, setIsJumping] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (feedback === 'idle' && !isGameOver) {
+      setInputValue('');
+      inputRef.current?.focus();
+    }
+  }, [feedback, isGameOver, problem.question]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (feedback !== 'idle' || isGameOver || !inputValue.trim()) return;
+    setIsJumping(true);
+    onAnswer(inputValue.trim());
+    setTimeout(() => setIsJumping(null as any), 500);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md battle-overlay">
-      <div className="w-full max-w-lg bg-white border-8 border-gray-900 rounded-[3rem] p-8 shadow-[20px_20px_0px_0px_rgba(0,0,0,0.3)] relative overflow-hidden">
-        {/* PokeBall Header */}
-        <div className="absolute top-0 left-0 w-full h-32 bg-red-600 border-b-8 border-gray-900 -z-10"></div>
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 w-24 h-24 bg-white border-8 border-gray-900 rounded-full flex items-center justify-center -z-10">
-          <div className="w-12 h-12 border-4 border-gray-900 rounded-full bg-gray-200"></div>
+    <div className="fixed inset-0 z-50 flex flex-col sky-bg pixel-font overflow-hidden">
+      {/* HUD */}
+      <div className="p-8 flex justify-between items-start text-white text-xl z-20">
+        <div>
+          <p className="mb-2">OWEN</p>
+          <p>{score.toString().padStart(6, '0')}</p>
         </div>
-        
-        <div className="flex justify-between items-start mb-10">
-          <div className="bg-yellow-400 border-4 border-gray-900 px-4 py-1 rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-             <span className="text-xl font-black italic">LV. {Math.floor(score / 10) + 1}</span>
-          </div>
-          <div className="bg-white border-4 border-gray-900 px-4 py-1 rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-             <span className="text-lg font-black uppercase">Goal: {progress}/{totalProgress}</span>
-          </div>
-          <button 
-            onClick={onExit}
-            className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
-          >
-            <RotateCcw size={20} />
-          </button>
-        </div>
-
-        {/* Timer Bar */}
-        <div className="w-full h-6 bg-gray-200 border-4 border-gray-900 rounded-full mb-8 overflow-hidden relative">
-          <div 
-            className={`h-full transition-all duration-1000 ease-linear ${
-              timeLeft > 10 ? 'bg-green-400' : timeLeft > 5 ? 'bg-yellow-400' : 'bg-red-500'
-            }`}
-            style={{ width: `${(timeLeft / totalTimeLimit) * 100}%` }}
-          ></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-             <span className="text-[10px] font-black uppercase italic">Time Left: {timeLeft}s</span>
-          </div>
-        </div>
-
         <div className="flex flex-col items-center">
-          <div className={`bg-gray-100 border-8 border-gray-900 rounded-[2rem] p-10 w-full mb-8 text-center shadow-inner relative overflow-hidden transition-all ${
-            feedback === 'correct' ? 'bg-green-100 border-green-700' : 
-            feedback === 'wrong' ? 'bg-red-100 border-red-700' : ''
-          }`}>
-            <div className="absolute top-2 left-2 flex gap-1">
-              {[...Array(3)].map((_, i) => <div key={i} className="w-2 h-2 rounded-full bg-gray-400"></div>)}
-            </div>
-            <p className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-4 wild-appear">
-              {feedback === 'correct' ? 'Excellent!' : feedback === 'wrong' ? 'Try Again!' : 'Wild Problem Appears!'}
-            </p>
-            <h2 className={`text-5xl font-black text-gray-900 tracking-tighter ${feedback === 'wrong' ? 'shake' : ''}`}>
-              {problem.question}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 w-full">
-            {problem.options.map((option: string, idx: number) => (
-              <button
-                key={idx}
-                onClick={() => onAnswer(option)}
-                disabled={feedback !== 'idle' || isGameOver}
-                className={`bg-white hover:bg-gray-100 text-gray-900 font-black text-2xl py-6 rounded-2xl border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase italic ${
-                  feedback === 'correct' && (option === problem.answer || option === problem.rawAnswer) ? 'bg-green-400' : ''
-                }`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
+          <p className="mb-2">COINS</p>
+          <p className="flex items-center gap-2">
+            <Coins className="text-yellow-400" /> ×{progress.toString().padStart(3, '0')}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="mb-2">WORLD</p>
+          <p>1-{Math.floor(progress / 50) + 1}</p>
+        </div>
+        <div className="text-right">
+          <p className="mb-2">TIME</p>
+          <p className={timeLeft < 5 ? 'text-red-500 animate-pulse' : ''}>{timeLeft}</p>
         </div>
       </div>
+
+      {/* Decorative Clouds */}
+      <div className="absolute top-20 left-0 w-full h-40 pointer-events-none opacity-50 overflow-hidden">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="absolute cloud-animate" style={{ top: `${i * 40}px`, animationDelay: `${i * 15}s` }}>
+             <div className="w-24 h-12 bg-white rounded-full relative shadow-lg">
+                <div className="absolute -top-4 left-4 w-12 h-12 bg-white rounded-full"></div>
+                <div className="absolute -top-4 right-4 w-12 h-12 bg-white rounded-full"></div>
+             </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main Game Area */}
+      <div className="flex-1 relative flex flex-col items-center justify-center pb-32">
+        {/* The Problem */}
+        <div className={`mb-12 transform transition-all ${feedback === 'wrong' ? 'shake' : ''}`}>
+           <div className="bg-white border-8 border-black p-8 rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] text-center relative">
+              <p className="text-gray-400 text-[10px] mb-4 uppercase tracking-tighter">Question Block</p>
+              <h2 className="text-4xl md:text-6xl text-black leading-tight">{problem.question}</h2>
+              {feedback === 'correct' && (
+                <div className="absolute -top-20 left-1/2 -translate-x-1/2 coin-animate">
+                   <Coins size={60} className="text-yellow-400 fill-yellow-400" />
+                </div>
+              )}
+           </div>
+        </div>
+
+        {/* Answer Input */}
+        <form onSubmit={handleSubmit} className="flex flex-col items-center w-full max-w-sm px-4">
+           <input
+             ref={inputRef}
+             type="text"
+             value={inputValue}
+             onChange={(e) => setInputValue(e.target.value)}
+             disabled={feedback !== 'idle' || isGameOver}
+             autoFocus
+             placeholder="???"
+             className="w-full bg-white border-8 border-black p-6 text-4xl text-center text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] focus:outline-none mb-8 placeholder:opacity-20"
+           />
+           <button
+             type="submit"
+             disabled={feedback !== 'idle' || isGameOver || !inputValue.trim()}
+             className="mario-brick text-white text-xl px-12 py-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none hover:-translate-y-1 transition-all uppercase"
+           >
+             SUBMIT
+           </button>
+        </form>
+
+        {/* Owen Character */}
+        <div className={`absolute bottom-32 transition-all duration-300 ${isJumping ? 'mario-jump' : ''}`}>
+           <div className="w-16 h-20 bg-red-600 border-4 border-black relative rounded-sm flex items-center justify-center">
+              <div className="absolute top-0 w-full h-8 bg-red-800"></div>
+              <div className="absolute top-4 w-12 h-8 bg-pink-200 rounded-sm"></div>
+              <div className="absolute bottom-4 w-full h-8 bg-blue-600"></div>
+              <span className="text-white text-xs z-10">O</span>
+           </div>
+        </div>
+      </div>
+
+      {/* Ground */}
+      <div className="h-32 w-full mario-ground flex items-start justify-center pt-2">
+         <div className="flex gap-4 opacity-50">
+            {[...Array(20)].map((_, i) => <div key={i} className="w-10 h-10 border-4 border-black/20"></div>)}
+         </div>
+      </div>
+
+      {/* Exit Button */}
+      <button 
+        onClick={onExit}
+        className="fixed bottom-4 right-4 p-4 bg-green-500 border-4 border-black text-white hover:bg-green-400 transition-colors z-30"
+      >
+        <RotateCcw size={24} />
+      </button>
     </div>
   );
 }
@@ -257,23 +265,14 @@ function GameCard({ game, onSelect, isLocked }: { game: GameInfo; onSelect: (id:
   return (
     <div 
       onClick={() => !isLocked && onSelect(game.id)}
-      className={`pokemon-card relative ${isLocked ? 'locked' : 'cursor-pointer group'}`}
+      className={`mario-card relative ${isLocked ? 'locked' : 'cursor-pointer group'}`}
     >
-      <div className={`absolute inset-0 ${isLocked ? 'bg-gray-400' : game.color} rounded-3xl opacity-20 ${!isLocked && 'group-hover:opacity-40'} transition-opacity border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]`}></div>
-      <div className={`relative bg-white border-4 border-gray-900 rounded-3xl p-6 flex flex-col items-center text-center h-full`}>
-        <div className="absolute top-2 right-2 w-8 h-8 rounded-full border-4 border-gray-900 bg-gray-100 flex items-center justify-center opacity-30">
-          <div className="w-4 h-4 rounded-full bg-gray-400"></div>
+      <div className={`relative bg-white border-8 border-black p-6 flex flex-col items-center text-center h-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] group-hover:translate-x-1 group-hover:translate-y-1 group-hover:shadow-none transition-all`}>
+        <div className={`p-4 rounded-lg ${isLocked ? 'bg-gray-400' : 'mario-question-block'} border-4 border-black mb-4`}>
+          {isLocked ? <Lock size={40} className="text-black" /> : <game.icon size={40} className="text-black" />}
         </div>
-        <div className={`p-4 rounded-full ${isLocked ? 'bg-gray-400' : game.color} border-4 border-gray-900 mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}>
-          {isLocked ? <Lock size={40} className="text-gray-900" /> : <game.icon size={40} className="text-gray-900" />}
-        </div>
-        <h3 className="text-2xl font-black text-gray-900 mb-1 uppercase tracking-tighter leading-none">{game.title}</h3>
-        <p className="text-xs font-black text-gray-500 uppercase tracking-widest">{game.grades}</p>
-        {!isLocked && (
-          <div className="mt-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black italic">BATTLE!</span>
-          </div>
-        )}
+        <h3 className="text-lg font-black text-black mb-2 uppercase pixel-font tracking-tighter leading-tight">{game.title}</h3>
+        <p className="text-[10px] text-gray-400 uppercase pixel-font">{game.grades}</p>
       </div>
     </div>
   );
@@ -299,20 +298,16 @@ function MultiplicationGame({ onExit, onComplete }: { onExit: () => void; onComp
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [isGameOver, setIsGameOver] = useState(false);
   const timerRef = useRef<any>(null);
 
   const pickNextQuestion = useCallback((qs: MathQuestion[]) => {
     const remaining = qs.filter(q => !isQuestionSatisfied(q));
-    if (remaining.length === 0) {
-      return null;
-    }
-    const q = remaining[getRandomInt(0, remaining.length - 1)];
-    return { ...q, options: generateOptions(q.answer, 'Multiplication') };
+    if (remaining.length === 0) return null;
+    return remaining[getRandomInt(0, remaining.length - 1)];
   }, []);
 
-  // Initial progress setup
   useEffect(() => {
     setProgress(questions.filter(isQuestionSatisfied).length);
   }, []);
@@ -333,7 +328,7 @@ function MultiplicationGame({ onExit, onComplete }: { onExit: () => void; onComp
     const next = pickNextQuestion(updatedQs);
     if (next) {
       setCurrentQuestion(next);
-      setTimeLeft(difficulty || 20);
+      setTimeLeft(difficulty || 10);
       setFeedback('idle');
     } else {
       setIsGameOver(true);
@@ -372,10 +367,9 @@ function MultiplicationGame({ onExit, onComplete }: { onExit: () => void; onComp
     if (feedback !== 'idle' || isGameOver || !currentQuestion) return;
     if (timerRef.current) clearInterval(timerRef.current);
     
-    const isCorrect = selectedOption === currentQuestion.answer;
-    
+    const isCorrect = selectedOption.trim() === currentQuestion.answer;
     setFeedback(isCorrect ? 'correct' : 'wrong');
-    if (isCorrect) setScore(s => s + 10);
+    if (isCorrect) setScore(s => s + 100);
 
     setQuestions(prev => {
       const updated = prev.map(q => {
@@ -388,7 +382,6 @@ function MultiplicationGame({ onExit, onComplete }: { onExit: () => void; onComp
       });
       localStorage.setItem(MULTIPLICATION_STATE_KEY, JSON.stringify(updated));
       setProgress(updated.filter(isQuestionSatisfied).length);
-      
       setTimeout(() => moveToNext(updated), 800);
       return updated;
     });
@@ -396,32 +389,26 @@ function MultiplicationGame({ onExit, onComplete }: { onExit: () => void; onComp
 
   if (difficulty === null) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md">
-        <div className="w-full max-w-md bg-white border-8 border-gray-900 rounded-[3rem] p-10 shadow-[20px_20px_0px_0px_rgba(0,0,0,0.3)] text-center">
-          <h2 className="text-4xl font-black text-gray-900 mb-2 uppercase italic tracking-tighter">Choose Difficulty</h2>
-          <p className="text-gray-500 font-black uppercase tracking-widest text-xs mb-8">How much time do you need per battle?</p>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sky-bg pixel-font">
+        <div className="w-full max-w-md bg-white border-8 border-black p-10 shadow-[20px_20px_0px_0px_rgba(0,0,0,0.3)] text-center">
+          <h2 className="text-2xl font-black text-black mb-4 uppercase leading-tight">WORLD SELECTION</h2>
+          <p className="text-gray-500 text-[10px] mb-8 uppercase leading-none">Choose Owen's speed!</p>
           <div className="grid grid-cols-1 gap-4">
             {[
-              { label: 'EASY (15s)', time: 15, color: 'bg-green-400' },
-              { label: 'NORMAL (10s)', time: 10, color: 'bg-yellow-400' },
-              { label: 'HARD (5s)', time: 5, color: 'bg-orange-500' },
-              { label: 'TRAINER (3s)', time: 3, color: 'bg-red-600' }
+              { label: 'WORLD 1-1 (15s)', time: 15, color: 'bg-green-500' },
+              { label: 'WORLD 1-2 (10s)', time: 10, color: 'bg-yellow-500' },
+              { label: 'WORLD 1-3 (5s)', time: 5, color: 'bg-orange-600' },
+              { label: 'WORLD 1-4 (3s)', time: 3, color: 'bg-red-700' }
             ].map((mode) => (
               <button
                 key={mode.time}
                 onClick={() => startBattle(mode.time)}
-                className={`${mode.color} text-gray-900 font-black text-xl py-4 rounded-2xl border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase italic`}
+                className={`${mode.color} text-white text-xs py-6 rounded-sm border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase leading-none`}
               >
                 {mode.label}
               </button>
             ))}
           </div>
-          <button 
-            onClick={onExit}
-            className="mt-8 text-gray-500 font-black uppercase tracking-widest text-xs hover:text-gray-900 transition-colors"
-          >
-            Cancel Battle
-          </button>
         </div>
       </div>
     );
@@ -432,7 +419,7 @@ function MultiplicationGame({ onExit, onComplete }: { onExit: () => void; onComp
   return (
     <BattleUI 
       gameId={gameId} 
-      problem={currentQuestion || { question: 'Done!', options: [] }} 
+      problem={currentQuestion || { question: 'LEVEL CLEAR!', options: [] }} 
       feedback={feedback} 
       score={score} 
       progress={progress} 
@@ -452,7 +439,7 @@ function FractionGame({ onExit, onComplete }: { onExit: () => void; onComplete: 
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [isGameOver, setIsGameOver] = useState(false);
   const timerRef = useRef<any>(null);
 
@@ -461,7 +448,7 @@ function FractionGame({ onExit, onComplete }: { onExit: () => void; onComplete: 
     setFeedback('wrong');
     setTimeout(() => {
       setProblem(generateProblem(gameId));
-      setTimeLeft(TIME_LIMIT);
+      setTimeLeft(10);
       setFeedback('idle');
     }, 800);
   }, [gameId]);
@@ -484,10 +471,10 @@ function FractionGame({ onExit, onComplete }: { onExit: () => void; onComplete: 
   const handleAnswer = (selectedOption: string) => {
     if (feedback !== 'idle' || isGameOver) return;
     if (timerRef.current) clearInterval(timerRef.current);
-    const isCorrect = selectedOption === problem.answer || (problem.rawAnswer && selectedOption === problem.rawAnswer);
+    const isCorrect = selectedOption.trim() === problem.answer || (problem.rawAnswer && selectedOption.trim() === problem.rawAnswer);
     if (isCorrect) {
       setFeedback('correct');
-      setScore(s => s + 10);
+      setScore(s => s + 100);
       const newProgress = progress + 1;
       setProgress(newProgress);
       if (newProgress >= 20) {
@@ -496,7 +483,7 @@ function FractionGame({ onExit, onComplete }: { onExit: () => void; onComplete: 
       } else {
         setTimeout(() => {
           setProblem(generateProblem(gameId));
-          setTimeLeft(TIME_LIMIT);
+          setTimeLeft(10);
           setFeedback('idle');
         }, 800);
       }
@@ -504,7 +491,7 @@ function FractionGame({ onExit, onComplete }: { onExit: () => void; onComplete: 
       setFeedback('wrong');
       setTimeout(() => {
         setFeedback('idle');
-        setTimeLeft(TIME_LIMIT);
+        setTimeLeft(10);
       }, 800);
     }
   };
@@ -518,7 +505,7 @@ function DecimalGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [isGameOver, setIsGameOver] = useState(false);
   const timerRef = useRef<any>(null);
 
@@ -527,7 +514,7 @@ function DecimalGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
     setFeedback('wrong');
     setTimeout(() => {
       setProblem(generateProblem(gameId));
-      setTimeLeft(TIME_LIMIT);
+      setTimeLeft(10);
       setFeedback('idle');
     }, 800);
   }, [gameId]);
@@ -550,10 +537,10 @@ function DecimalGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
   const handleAnswer = (selectedOption: string) => {
     if (feedback !== 'idle' || isGameOver) return;
     if (timerRef.current) clearInterval(timerRef.current);
-    const isCorrect = selectedOption === problem.answer || (problem.rawAnswer && selectedOption === problem.rawAnswer);
+    const isCorrect = selectedOption.trim() === problem.answer;
     if (isCorrect) {
       setFeedback('correct');
-      setScore(s => s + 10);
+      setScore(s => s + 100);
       const newProgress = progress + 1;
       setProgress(newProgress);
       if (newProgress >= 20) {
@@ -562,7 +549,7 @@ function DecimalGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
       } else {
         setTimeout(() => {
           setProblem(generateProblem(gameId));
-          setTimeLeft(TIME_LIMIT);
+          setTimeLeft(10);
           setFeedback('idle');
         }, 800);
       }
@@ -570,7 +557,7 @@ function DecimalGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
       setFeedback('wrong');
       setTimeout(() => {
         setFeedback('idle');
-        setTimeLeft(TIME_LIMIT);
+        setTimeLeft(10);
       }, 800);
     }
   };
@@ -584,7 +571,7 @@ function PEMDASGame({ onExit, onComplete }: { onExit: () => void; onComplete: ()
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [isGameOver, setIsGameOver] = useState(false);
   const timerRef = useRef<any>(null);
 
@@ -593,7 +580,7 @@ function PEMDASGame({ onExit, onComplete }: { onExit: () => void; onComplete: ()
     setFeedback('wrong');
     setTimeout(() => {
       setProblem(generateProblem(gameId));
-      setTimeLeft(TIME_LIMIT);
+      setTimeLeft(10);
       setFeedback('idle');
     }, 800);
   }, [gameId]);
@@ -616,10 +603,10 @@ function PEMDASGame({ onExit, onComplete }: { onExit: () => void; onComplete: ()
   const handleAnswer = (selectedOption: string) => {
     if (feedback !== 'idle' || isGameOver) return;
     if (timerRef.current) clearInterval(timerRef.current);
-    const isCorrect = selectedOption === problem.answer || (problem.rawAnswer && selectedOption === problem.rawAnswer);
+    const isCorrect = selectedOption.trim() === problem.answer;
     if (isCorrect) {
       setFeedback('correct');
-      setScore(s => s + 10);
+      setScore(s => s + 100);
       const newProgress = progress + 1;
       setProgress(newProgress);
       if (newProgress >= 20) {
@@ -628,7 +615,7 @@ function PEMDASGame({ onExit, onComplete }: { onExit: () => void; onComplete: ()
       } else {
         setTimeout(() => {
           setProblem(generateProblem(gameId));
-          setTimeLeft(TIME_LIMIT);
+          setTimeLeft(10);
           setFeedback('idle');
         }, 800);
       }
@@ -636,7 +623,7 @@ function PEMDASGame({ onExit, onComplete }: { onExit: () => void; onComplete: ()
       setFeedback('wrong');
       setTimeout(() => {
         setFeedback('idle');
-        setTimeLeft(TIME_LIMIT);
+        setTimeLeft(10);
       }, 800);
     }
   };
@@ -650,7 +637,7 @@ function AlgebraGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [isGameOver, setIsGameOver] = useState(false);
   const timerRef = useRef<any>(null);
 
@@ -659,7 +646,7 @@ function AlgebraGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
     setFeedback('wrong');
     setTimeout(() => {
       setProblem(generateProblem(gameId));
-      setTimeLeft(TIME_LIMIT);
+      setTimeLeft(10);
       setFeedback('idle');
     }, 800);
   }, [gameId]);
@@ -682,10 +669,10 @@ function AlgebraGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
   const handleAnswer = (selectedOption: string) => {
     if (feedback !== 'idle' || isGameOver) return;
     if (timerRef.current) clearInterval(timerRef.current);
-    const isCorrect = selectedOption === problem.answer || (problem.rawAnswer && selectedOption === problem.rawAnswer);
+    const isCorrect = selectedOption.trim() === problem.answer;
     if (isCorrect) {
       setFeedback('correct');
-      setScore(s => s + 10);
+      setScore(s => s + 100);
       const newProgress = progress + 1;
       setProgress(newProgress);
       if (newProgress >= 20) {
@@ -694,7 +681,7 @@ function AlgebraGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
       } else {
         setTimeout(() => {
           setProblem(generateProblem(gameId));
-          setTimeLeft(TIME_LIMIT);
+          setTimeLeft(10);
           setFeedback('idle');
         }, 800);
       }
@@ -702,7 +689,7 @@ function AlgebraGame({ onExit, onComplete }: { onExit: () => void; onComplete: (
       setFeedback('wrong');
       setTimeout(() => {
         setFeedback('idle');
-        setTimeLeft(TIME_LIMIT);
+        setTimeLeft(10);
       }, 800);
     }
   };
@@ -732,36 +719,42 @@ export default function App() {
   }, [activeGame, unlockedLevel]);
 
   return (
-    <div className="min-h-screen bg-yellow-400 font-mono pb-20 selection:bg-red-600 selection:text-white">
+    <div className="min-h-screen sky-bg pixel-font pb-20 selection:bg-red-600 selection:text-white relative">
+      {/* Moving Background Clouds for Home Screen */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="absolute cloud-animate" style={{ top: `${i * 10}%`, animationDelay: `${i * 10}s`, opacity: 0.3 }}>
+             <div className="w-32 h-16 bg-white rounded-full"></div>
+          </div>
+        ))}
+      </div>
+
       {/* Branding Banner */}
-      <div className="bg-gray-900 border-b-4 border-red-600 py-3 overflow-hidden whitespace-nowrap">
+      <div className="bg-black border-b-4 border-white py-2 overflow-hidden whitespace-nowrap relative z-10">
         <div className="animate-marquee inline-block">
           {[...Array(10)].map((_, i) => (
-            <span key={i} className="text-white font-black text-xl uppercase mx-8 tracking-tighter flex items-center gap-4">
-              <span className="text-red-600">★</span> Authorized Access: Owen Only <span className="text-red-600">★</span>
+            <span key={i} className="text-white text-xs uppercase mx-8 tracking-tighter">
+              ★ SUPER OWEN BROS ★ SELECT START ★ OWEN ONLY ★
             </span>
           ))}
         </div>
       </div>
 
-      <header className="pt-20 pb-20 px-6 text-center relative">
-        {/* Decorative elements */}
-        <div className="absolute top-10 left-10 w-24 h-24 border-8 border-gray-900 rounded-full opacity-10"></div>
-        <div className="absolute top-40 right-20 w-16 h-16 border-8 border-gray-900 rotate-45 opacity-10"></div>
-        
+      <header className="pt-20 pb-20 px-6 text-center relative z-10">
         <div className="relative inline-block">
-          <div className="absolute -inset-6 bg-red-600 border-8 border-gray-900 rounded-[2rem] -rotate-2"></div>
-          <div className="absolute -inset-6 bg-white border-8 border-gray-900 rounded-[2rem] rotate-1"></div>
-          <h1 className="relative text-6xl md:text-8xl font-black text-gray-900 italic tracking-tighter uppercase leading-none">
-            Owen's <br className="md:hidden" /> Math Hub
-          </h1>
+          <div className="absolute -inset-4 bg-black border-4 border-white translate-x-2 translate-y-2"></div>
+          <div className="relative bg-[#e76d42] border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <h1 className="text-4xl md:text-6xl text-white leading-tight uppercase tracking-tighter">
+              SUPER <br /> OWEN HUB
+            </h1>
+          </div>
         </div>
         <div className="mt-8">
-           <span className="bg-gray-900 text-white px-6 py-2 rounded-full text-lg font-black uppercase tracking-widest italic">Trainer Owen Edition</span>
+           <span className="bg-white text-black px-6 py-2 border-4 border-black text-xs uppercase animate-pulse">Press Any Card!</span>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6">
+      <main className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="grid-5-cols">
           {GAMES.map((game, index) => (
             <GameCard 
@@ -806,22 +799,13 @@ export default function App() {
       )}
 
       {/* Footer Decoration */}
-      <footer className="mt-32 border-t-8 border-gray-900 bg-red-600 py-20 px-6 overflow-hidden relative">
+      <footer className="mt-32 border-t-8 border-black mario-ground py-20 px-6 relative">
          <div className="max-w-4xl mx-auto text-center relative z-10">
-            <div className="w-20 h-20 bg-white border-8 border-gray-900 rounded-full mx-auto mb-8 flex items-center justify-center">
-               <div className="w-8 h-8 bg-gray-200 border-4 border-gray-900 rounded-full"></div>
-            </div>
-            <p className="text-white font-black text-2xl uppercase tracking-tighter mb-2 italic">Gotta Solve 'Em All!</p>
-            <p className="text-white font-black text-xl uppercase tracking-tighter mb-4 italic">Owen's Hub {VERSION}</p>
-            <div className="flex justify-center gap-4">
-               {[...Array(6)].map((_, i) => (
-                 <div key={i} className="w-12 h-12 bg-white/20 border-4 border-white/40 rounded-full"></div>
-               ))}
-            </div>
+            <div className="w-24 h-40 mario-pipe mx-auto mb-8"></div>
+            <p className="text-white text-xl uppercase mb-4 tracking-tighter">THANK YOU OWEN!</p>
+            <p className="text-white text-xs uppercase tracking-tighter">BUT THE ANSWERS ARE IN ANOTHER CASTLE!</p>
+            <p className="text-white/50 text-[10px] mt-8 uppercase tracking-widest italic">{VERSION}</p>
          </div>
-         {/* Abstract background circles */}
-         <div className="absolute -bottom-20 -left-20 w-64 h-64 border-[16px] border-black/10 rounded-full"></div>
-         <div className="absolute -top-20 -right-20 w-80 h-80 border-[24px] border-black/10 rounded-full"></div>
       </footer>
     </div>
   );
