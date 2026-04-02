@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Shield, Star, Zap, Brain, RotateCcw, Lock, Coins, Heart, Eye, Target, MessageSquare, Clock, Trophy, Music } from 'lucide-react';
+import { Shield, Star, Zap, Brain, RotateCcw, Lock, Coins, Heart, Eye, Target, MessageSquare, Clock, Trophy, Music, Volume2, Type } from 'lucide-react';
 import './App.css';
 
 // --- Types & Constants ---
@@ -10,7 +10,7 @@ const QUEST_LOG_KEY = 'owen_overworld_quests_v4';
 const ACTIVITY_HISTORY_KEY = 'owen_overworld_history_v4';
 const TOTP_SECRET = "JBSWY3DPEBLW64TMMQ"; 
 
-type GameType = 'FactFluency' | 'ContextClues' | 'FocusForest' | 'AdvocacyCastle' | 'LexiaLink' | 'PianoPractice' | 'Journal' | 'Admin';
+type GameType = 'FactFluency' | 'ContextClues' | 'FocusForest' | 'AdvocacyCastle' | 'LexiaLink' | 'PianoPractice' | 'Journal' | 'Admin' | 'SpellingBee';
 
 interface UserStats {
   xp: number;
@@ -35,9 +35,24 @@ interface MathQuestion {
 }
 
 interface Problem {
-  question: string;
+  question: string | React.ReactNode;
   answer: string;
+  options?: string[];
 }
+
+const SPELLING_WORDS = [
+  "achieve", "against", "answer", "autumn", "beautiful", "believe", "between", "bicycle", "boundary", "business",
+  "caught", "calendar", "character", "child", "clothes", "column", "complete", "country", "daughter", "decide",
+  "describe", "dictionary", "different", "disappeared", "early", "education", "embarrass", "enough", "examine",
+  "exercise", "experience", "experiment", "extreme", "famous", "favorite", "February", "forward", "grammar",
+  "group", "guard", "guide", "heard", "heart", "height", "history", "imagine", "important", "increase",
+  "interest", "island", "knowledge", "library", "material", "medicine", "mention", "minute", "natural",
+  "naughty", "notice", "occasion", "often", "opposite", "ordinary", "particular", "peculiar", "perhaps",
+  "popular", "position", "possess", "possible", "potatoes", "pressure", "probably", "promise", "purpose",
+  "quarter", "question", "recent", "regular", "reign", "remember", "sentence", "separate", "special",
+  "straight", "strange", "strength", "suppose", "surprise", "therefore", "though", "thought", "through",
+  "together", "weight", "woman", "women"
+];
 
 // --- Utilities ---
 const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -92,24 +107,27 @@ const isQuestionSatisfied = (q: MathQuestion) => q.correctCount >= q.incorrectCo
 const generateProblem = (type: string): Problem => {
   if (type === 'ContextClues') {
     const clues = [
-      { q: "The sun was so [blank] I had to wear glasses.", a: "bright" },
-      { q: "Owen is very [blank] and tells great jokes.", a: "witty" },
-      { q: "I used a [blank] to see the tiny bacteria.", a: "microscope" },
-      { q: "The [blank] of the mountain was covered in snow.", a: "peak" },
-      { q: "He felt [blank] after getting a 4 on his test.", a: "proud" }
+      { q: "The sun was so [blank] I had to wear glasses.", a: "bright", o: ["dark", "bright", "cold", "wet"] },
+      { q: "Owen is very [blank] and tells great jokes.", a: "witty", o: ["sad", "witty", "angry", "slow"] },
+      { q: "I used a [blank] to see the tiny bacteria.", a: "microscope", o: ["telescope", "microscope", "glasses", "mirror"] },
+      { q: "The [blank] of the mountain was covered in snow.", a: "peak", o: ["base", "peak", "valley", "cave"] },
+      { q: "He felt [blank] after getting a 4 on his test.", a: "proud", o: ["scared", "proud", "tired", "bored"] },
+      { q: "The cat was so [blank] it slept for ten hours.", a: "lethargic", o: ["energetic", "lethargic", "noisy", "hungry"] },
+      { q: "It was [blank] that Owen would win the race.", a: "evident", o: ["hidden", "evident", "unlikely", "secret"] },
+      { q: "The [blank] smell of flowers filled the room.", a: "fragrant", o: ["stinky", "fragrant", "sour", "bitter"] }
     ];
     const item = clues[getRandomInt(0, clues.length - 1)];
-    return { question: item.q, answer: item.a };
+    return { question: item.q, answer: item.a, options: item.o };
   }
   if (type === 'AdvocacyCastle') {
     const scenarios = [
-      { q: "I can't see the board well. What should I do?", a: "move closer" },
-      { q: "I forgot my [blank] at home. I need them to see.", a: "glasses" },
-      { q: "The teacher is talking. Is it joke time? (yes/no)", a: "no" },
-      { q: "I have a 'standing [blank]' to move closer anytime.", a: "invitation" }
+      { q: "I can't see the board well. What should I do?", a: "move closer", o: ["stay put", "move closer", "close eyes", "go home"] },
+      { q: "I forgot my glasses at home. What should I do?", a: "tell teacher", o: ["hide it", "tell teacher", "ignore it", "cry"] },
+      { q: "The teacher is talking. Is it joke time?", a: "no", o: ["yes", "no"] },
+      { q: "I have a 'standing [blank]' to move closer anytime.", a: "invitation", o: ["order", "invitation", "rule", "ban"] }
     ];
     const item = scenarios[getRandomInt(0, scenarios.length - 1)];
-    return { question: item.q, answer: item.a };
+    return { question: item.q, answer: item.a, options: item.o };
   }
   return { question: "1 + 1", answer: "2" };
 };
@@ -263,23 +281,33 @@ function MorningPowerUp({ onComplete }: { onComplete: (items: string[]) => void 
   );
 }
 
-function BattleUI({ gameId, problem, feedback, progress, totalProgress, timeLeft, onExit, onAnswer }: any) {
+function BattleUI({ gameId, problem, feedback, progress, totalProgress, timeLeft, onExit, onAnswer, onStart }: any) {
   const [inputValue, setInputValue] = useState('');
   const [isJumping, setIsJumping] = useState(false);
   const [isStarting, setIsStarting] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (feedback === 'idle' && !isStarting) { setInputValue(''); inputRef.current?.focus(); } }, [feedback, problem?.question, isStarting]);
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (feedback !== 'idle' || !inputValue.trim()) return; setIsJumping(true); onAnswer(inputValue.trim()); setTimeout(() => setIsJumping(false), 500); };
-  if (isStarting) return (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 sky-bg pixel-font text-center text-black"><div className="bg-white border-8 border-black p-10 max-w-lg shadow-[20px_20px_0px_0px_rgba(0,0,0,0.3)] text-black"><h2 className="text-2xl mb-4 uppercase text-black font-bold text-center">READY?</h2><button onClick={() => setIsStarting(false)} className="bg-green-500 text-white p-6 border-4 border-black uppercase animate-bounce w-full font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-pixel text-center">START MISSION</button></div></div>);
+  if (isStarting) return (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 sky-bg pixel-font text-center text-black"><div className="bg-white border-8 border-black p-10 max-w-lg shadow-[20px_20px_0px_0px_rgba(0,0,0,0.3)] text-black"><h2 className="text-2xl mb-4 uppercase text-black font-bold text-center">READY?</h2><button onClick={() => { setIsStarting(false); onStart?.(); }} className="bg-green-500 text-white p-6 border-4 border-black uppercase animate-bounce w-full font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-pixel text-center">START MISSION</button></div></div>);
   return (
     <div className="fixed inset-0 z-50 flex flex-col sky-bg pixel-font overflow-hidden text-white">
       <div className="p-8 flex justify-between items-start z-20 shrink-0 text-white"><div className="text-left text-white"><p className="text-[10px] text-blue-400 mb-2 font-bold">{gameId.toUpperCase()}</p><p className="flex items-center gap-2 text-sm text-white font-bold"><Trophy size={16} className="text-yellow-400" /> {progress}/{totalProgress}</p></div><div className="text-right text-white"><p className="text-[10px] text-yellow-400 mb-2 font-bold">TIME</p><p className={timeLeft < 5 ? 'text-red-500 animate-pulse' : 'text-white'}>{timeLeft}</p></div></div>
       <div className="flex-1 relative flex flex-col items-center justify-center pb-32 text-black">
-        <div className={`mb-12 transform transition-all ${feedback === 'wrong' ? 'shake' : ''}`}><div className="bg-white border-8 border-black p-8 rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] text-center relative max-w-md mx-auto text-black"><h2 className="text-xl md:text-2xl leading-tight uppercase text-black font-bold text-center">{problem?.question}</h2>{feedback === 'correct' && <div className="absolute -top-20 left-1/2 -translate-x-1/2 coin-animate"><Coins size={60} className="text-yellow-400 fill-yellow-400" /></div>}</div></div>
-        <form onSubmit={handleSubmit} className="flex flex-col items-center w-full max-w-sm px-4 text-black">
-           <input ref={inputRef} type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={feedback !== 'idle'} placeholder="???" className="w-full bg-white border-8 border-black p-6 text-2xl text-center text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] focus:outline-none mb-8 placeholder:opacity-20 uppercase font-bold text-black" />
-           <button type="submit" className="bg-red-600 text-white px-12 py-4 border-4 border-black uppercase font-bold text-xl w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-pixel text-center">SUBMIT</button>
-        </form>
+        <div className={`mb-12 transform transition-all ${feedback === 'wrong' ? 'shake' : ''}`}><div className="bg-white border-8 border-black p-8 rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] text-center relative max-w-md mx-auto text-black"><div className="text-xl md:text-2xl leading-tight uppercase text-black font-bold text-center">{problem?.question}</div>{feedback === 'correct' && <div className="absolute -top-20 left-1/2 -translate-x-1/2 coin-animate"><Coins size={60} className="text-yellow-400 fill-yellow-400" /></div>}</div></div>
+        
+        {problem?.options ? (
+          <div className="grid grid-cols-2 gap-4 w-full max-w-xl px-4">
+            {problem.options.map((opt: string) => (
+              <button key={opt} onClick={() => onAnswer(opt)} disabled={feedback !== 'idle'} className="bg-white border-8 border-black p-4 text-xs uppercase font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none hover:bg-gray-50 transition-colors text-black">{opt}</button>
+            ))}
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col items-center w-full max-w-sm px-4 text-black">
+             <input ref={inputRef} type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={feedback !== 'idle'} placeholder="???" className="w-full bg-white border-8 border-black p-6 text-2xl text-center text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] focus:outline-none mb-8 placeholder:opacity-20 uppercase font-bold text-black" />
+             <button type="submit" className="bg-red-600 text-white px-12 py-4 border-4 border-black uppercase font-bold text-xl w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-pixel text-center">SUBMIT</button>
+          </form>
+        )}
+        
         <div className={`absolute bottom-32 left-8 md:left-20 transition-all duration-300 ${isJumping ? 'mario-jump' : ''}`}><div className="w-16 h-20 bg-red-600 border-4 border-black relative rounded-sm flex items-center justify-center text-white font-bold text-center"><div className="absolute top-0 w-full h-8 bg-red-800"></div><div className="absolute top-4 w-12 h-8 bg-pink-200 rounded-sm"></div><div className="absolute bottom-4 w-full h-8 bg-blue-600"></div><span className="text-white text-[8px] z-10 font-bold uppercase">O</span></div></div>
       </div>
       <div className="h-32 w-full mario-ground shrink-0"></div>
@@ -339,6 +367,294 @@ function LexiaOverlay({ onExit, onLog }: any) {
   return (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 sky-bg pixel-font text-black text-center"><div className="bg-white border-8 border-black p-10 max-w-md text-black text-center"><h2 className="text-xl mb-4 text-purple-600 uppercase font-bold text-center">LEXIA POWER-UP</h2><button onClick={() => { onLog(); window.open('https://www.lexiacore5.com/', '_blank'); }} className="bg-purple-600 text-white p-6 border-4 border-black uppercase w-full mb-4 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-center">OPEN</button><button onClick={onExit} className="text-[8px] text-gray-400 uppercase font-bold text-center underline">Back</button></div></div>);
 }
 
+function SpellingBoardGame({ onExit, onReward, onLogTime }: any) {
+  const [word, setWord] = useState('');
+  const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  const [playerPosition, setPlayerPosition] = useState(0);
+  const [isRolling, setIsRolling] = useState(false);
+  const [diceValue, setDiceValue] = useState(0);
+  const [showChallenge, setShowChallenge] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const startRef = useRef(Date.now());
+  const inputRef = useRef<HTMLInputElement>(null);
+  const totalTiles = 12;
+
+  // Voice management
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    const synth = window.speechSynthesis;
+    const updateVoices = () => {
+      const v = synth.getVoices();
+      console.log("[TTS] Voices loaded:", v.length);
+      setVoices(v);
+    };
+    updateVoices();
+    if (synth.onvoiceschanged !== undefined) {
+      synth.onvoiceschanged = updateVoices;
+    }
+  }, []);
+
+  // Use a ref to track the last word spoken to prevent double-calls
+  const lastSpokenRef = useRef({ word: '', time: 0 });
+
+  const [apiStatus, setApiStatus] = useState('Initializing...');
+  const [voiceIndex, setVoiceIndex] = useState(0);
+
+  const speak = useCallback((text: string) => {
+    if (!text || typeof window === 'undefined') return;
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+
+    // 1. Immediate UI Feedback
+    setIsSpeaking(true);
+    setApiStatus('Triggered...');
+    console.log("[TTS] --- CHROME MAC FIX SPEAK ---", text);
+
+    // 2. THE CHROME MAC FIX:
+    // First, resume to clear any "paused" state bugs
+    synth.resume();
+    // Then cancel any current speech
+    synth.cancel();
+
+    // 3. Create the utterance
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Voice Selection
+    const allVoices = synth.getVoices();
+    const enVoices = allVoices.filter(v => v.lang.startsWith('en'));
+    const voicesToUse = enVoices.length > 0 ? enVoices : allVoices;
+    const selectedVoice = voicesToUse[voiceIndex % voicesToUse.length];
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      utterance.lang = selectedVoice.lang;
+    }
+
+    utterance.rate = 0.9;
+    utterance.volume = 1.0;
+
+    // 4. Lifecycle hooks
+    utterance.onstart = () => {
+      console.log("[TTS] >>> SUCCESS: Audio is playing");
+      setApiStatus('Speaking...');
+    };
+    utterance.onend = () => {
+      console.log("[TTS] >>> ONEND SUCCESS");
+      setIsSpeaking(false);
+      setApiStatus('Ready');
+    };
+    utterance.onerror = (e: any) => {
+      console.error("[TTS] >>> ERROR:", e.error);
+      setApiStatus(`Err: ${e.error}`);
+      setIsSpeaking(false);
+    };
+
+    // 5. Reference protection (Global scope)
+    (window as any)._activeUtterance = utterance;
+
+    // 6. THE CRITICAL BUFFER:
+    // Chrome on Mac often fails if speak() is called immediately after cancel().
+    // We wait 100ms to let the browser's speech queue settle.
+    setTimeout(() => {
+      console.log("[TTS] Executing synth.speak() after 100ms buffer");
+      synth.speak(utterance);
+      // Extra resume because Chrome is Chrome...
+      synth.resume();
+    }, 100);
+  }, [voiceIndex]);
+
+  const cycleVoice = () => {
+    const synth = window.speechSynthesis;
+    // Wake up on click
+    synth.resume();
+    synth.cancel();
+    setVoiceIndex(prev => prev + 1);
+    setApiStatus('Switched Voice');
+    setTimeout(() => speak("New voice selected"), 100);
+  };
+
+  const startTurn = () => {
+    // Force immediate engine wake-up on the physical click event
+    if (window.speechSynthesis) {
+      window.speechSynthesis.resume();
+    }
+    
+    console.log("[GAME] startTurn() triggered");
+    if (isRolling) return;
+
+    setIsRolling(true);
+    const roll = getRandomInt(1, 3);
+    setDiceValue(roll);
+    console.log("[GAME] Dice rolled:", roll);
+    
+    setTimeout(() => {
+      setIsRolling(false);
+      const newWord = SPELLING_WORDS[getRandomInt(0, SPELLING_WORDS.length - 1)];
+      setWord(newWord);
+      setShowChallenge(true);
+      setInputValue('');
+      console.log("[GAME] Challenge revealed word:", newWord);
+      // Speak the word
+      speak(newWord);
+    }, 600);
+  };
+
+  const handleAnswer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (feedback !== 'idle' || !inputValue.trim()) return;
+
+    const isCorrect = inputValue.trim().toLowerCase() === word.toLowerCase();
+    setFeedback(isCorrect ? 'correct' : 'wrong');
+
+    if (isCorrect) {
+      onReward(20 * diceValue, 10 * diceValue);
+      setTimeout(() => {
+        setPlayerPosition(prev => Math.min(prev + diceValue, totalTiles - 1));
+        setShowChallenge(false);
+        setFeedback('idle');
+        if (playerPosition + diceValue >= totalTiles - 1) {
+          onLogTime((Date.now() - startRef.current) / 60000);
+          alert("BOARD CLEARED! YOU REACHED THE CASTLE!");
+          onExit();
+        }
+      }, 1000);
+    } else {
+      setTimeout(() => setFeedback('idle'), 1000);
+    }
+  };
+
+  useEffect(() => {
+    if (showChallenge) inputRef.current?.focus();
+  }, [showChallenge]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col sky-bg pixel-font overflow-hidden text-black">
+      {/* Header */}
+      <div className="p-8 flex justify-between items-center z-20 shrink-0">
+        <div className="text-left">
+          <p className="text-[10px] text-blue-400 mb-2 font-bold uppercase">Spell Quest Board</p>
+          <p className="flex items-center gap-2 text-sm text-white font-bold"><Trophy size={16} className="text-yellow-400" /> {playerPosition}/{totalTiles - 1}</p>
+        </div>
+        <button onClick={onExit} className="p-4 bg-red-600 border-4 border-black text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase text-[10px] font-bold">Exit</button>
+      </div>
+
+      {/* Board Path */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="relative w-full max-w-4xl h-64 flex items-center justify-between px-12">
+          {/* Connecting Line */}
+          <div className="absolute top-1/2 left-24 right-24 h-4 bg-black/20 -translate-y-1/2 z-0"></div>
+          
+          {/* Tiles */}
+          {Array.from({ length: totalTiles }).map((_, i) => (
+            <div key={i} className={`w-12 h-12 border-4 border-black relative z-10 flex items-center justify-center transition-all ${
+              i === totalTiles - 1 ? 'bg-red-500 scale-125' : 
+              i <= playerPosition ? 'bg-green-400' : 'bg-white'
+            } ${i === playerPosition ? 'shadow-[0_0_20px_rgba(255,255,255,0.8)]' : ''}`}>
+              {i === totalTiles - 1 && <Shield className="text-white" size={20} />}
+              {i === 0 && <Star className="text-yellow-400" size={20} />}
+              
+              {/* Player Piece */}
+              {i === playerPosition && (
+                <div className="absolute -top-16 left-1/2 -translate-x-1/2 animate-bounce">
+                  <div className="w-10 h-12 bg-red-600 border-4 border-black relative rounded-sm flex items-center justify-center text-white font-bold">
+                    <div className="absolute top-0 w-full h-4 bg-red-800"></div>
+                    <span className="text-[8px] z-10">O</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Dice Area */}
+        {!showChallenge && (
+          <div className="mt-12 flex flex-col items-center gap-8">
+            <div className={`w-24 h-24 bg-white border-8 border-black flex items-center justify-center text-4xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] ${isRolling ? 'animate-spin' : ''}`}>
+              {isRolling ? '?' : diceValue || '🎲'}
+            </div>
+            <button 
+              onClick={startTurn}
+              disabled={isRolling}
+              className="bg-yellow-500 text-white px-12 py-6 border-4 border-black uppercase font-bold text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
+            >
+              Roll Dice!
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Challenge Overlay */}
+      {showChallenge && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-white border-8 border-black p-10 w-full max-w-md shadow-[12px_12px_0px_0px_rgba(255,255,255,0.2)] text-center">
+            <p className="text-[10px] text-gray-500 mb-4 uppercase">Spell the word to move {diceValue} steps!</p>
+            
+            <div className="flex flex-col items-center gap-6 mb-8">
+              <button 
+                type="button"
+                onClick={() => speak(word)} 
+                className={`p-6 rounded-full text-white transition-all border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none ${isSpeaking ? 'bg-yellow-500 scale-110' : 'bg-blue-500'}`}
+              >
+                <Volume2 size={48} className={isSpeaking ? 'animate-pulse' : ''} />
+              </button>
+              <span className="text-xs uppercase font-bold">{isSpeaking ? 'Speaking...' : 'Click to hear word'}</span>
+              <p className="text-[6px] text-gray-400 mt-2">API: {apiStatus}</p>
+              <div className="flex gap-4 justify-center mt-4">
+                <button 
+                  type="button"
+                  onClick={cycleVoice} 
+                  className="text-[6px] text-blue-500 underline uppercase"
+                >
+                  (Try Next Voice)
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const synth = window.speechSynthesis;
+                    synth.cancel();
+                    synth.resume();
+                    setApiStatus('Resetting...');
+                    setTimeout(() => setApiStatus('Ready'), 500);
+                  }} 
+                  className="text-[6px] text-red-500 underline uppercase"
+                >
+                  (Hard Reset)
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleAnswer} className="space-y-6">
+              <input 
+                ref={inputRef}
+                type="text" 
+                value={inputValue} 
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="TYPE HERE"
+                disabled={feedback !== 'idle'}
+                className={`w-full border-8 border-black p-4 text-xl text-center uppercase focus:outline-none ${
+                  feedback === 'correct' ? 'bg-green-100' : 
+                  feedback === 'wrong' ? 'bg-red-100 shake' : 'bg-gray-50'
+                }`}
+              />
+              <button 
+                type="submit"
+                disabled={feedback !== 'idle'}
+                className="w-full bg-red-600 text-white p-4 border-4 border-black uppercase font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
+              >
+                Submit Spell
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Ground */}
+      <div className="h-32 w-full mario-ground shrink-0"></div>
+    </div>
+  );
+}
+
 export default function App() {
   const [stats, setStats] = useState<UserStats>(() => { const saved = localStorage.getItem(USER_STATS_KEY); return saved ? JSON.parse(saved) : { xp: 0, coins: 0, level: 1, inventory: [] }; });
   const [history, setHistory] = useState<ActivityEntry>(() => { const saved = localStorage.getItem(ACTIVITY_HISTORY_KEY); return saved ? JSON.parse(saved) : {}; });
@@ -366,6 +682,7 @@ export default function App() {
           <WorldCard id="FocusForest" world="W3" title="Focus Forest" desc="Stay on task!" icon={Clock} color="bg-orange-500" />
           <WorldCard id="AdvocacyCastle" world="W4" title="Advocacy Castle" desc="Social mastery!" icon={Shield} color="bg-red-500" />
           <WorldCard id="PianoPractice" world="W5" title="Piano Pavilion" desc="Practice pieces!" icon={Music} color="bg-blue-400" />
+          <WorldCard id="SpellingBee" world="W6" title="Spell Sprint" desc="Grade 4 Spelling!" icon={Type} color="bg-cyan-400" />
           <WorldCard id="LexiaLink" world="Bonus" title="Lexia Power" desc="Reading mastery!" icon={Star} color="bg-purple-500" />
         </div>
       </main>
@@ -375,6 +692,7 @@ export default function App() {
       {(activeGame === 'ContextClues' || activeGame === 'AdvocacyCastle') && <MasteryGame id={activeGame} onExit={() => setActiveGame(null)} onReward={addRewards} onLogTime={(m: number) => logActivityTime(activeGame === 'ContextClues' ? 'Context Clues' : 'Advocacy', m)} />}
       {(activeGame === 'FocusForest' || activeGame === 'PianoPractice') && <FocusTimer title={activeGame === 'FocusForest' ? 'FOCUS FOREST' : 'PIANO PAVILION'} targetMins={activeGame === 'FocusForest' ? 10 : 20} onExit={() => setActiveGame(null)} onLogTime={(m: number) => logActivityTime(activeGame === 'FocusForest' ? 'Task Focus' : 'Piano Practice', m)} onComplete={(m: number) => { addRewards(activeGame === 'FocusForest' ? 500 : 1000, 50); logActivityTime(activeGame === 'FocusForest' ? 'Task Focus' : 'Piano Practice', m); setActiveGame(null); }} />}
       {activeGame === 'LexiaLink' && <LexiaOverlay onExit={() => setActiveGame(null)} onLog={() => logActivityTime('Lexia Reading', 20)} />}
+      {activeGame === 'SpellingBee' && <SpellingBoardGame onExit={() => setActiveGame(null)} onReward={addRewards} onLogTime={(m: number) => logActivityTime('Spelling', m)} />}
       <footer className="mt-32 border-t-8 border-black mario-ground py-20 px-6 relative shrink-0 text-white text-center">
          <div className="max-w-4xl mx-auto text-center relative z-10 text-white"><div className="w-24 h-40 mario-pipe mx-auto mb-8"></div><p className="text-white/50 text-[10px] uppercase tracking-widest italic font-bold text-center">{VERSION}</p><button onClick={() => setActiveGame('Admin')} className="mt-8 text-[8px] uppercase text-white/20 hover:text-white font-bold text-center underline">Admin Console</button></div>
       </footer>
